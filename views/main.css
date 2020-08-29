@@ -1,0 +1,15 @@
+body {
+  margin: 0;
+  background: white;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+canvas {
+  outline: 1px solid black;
+}
+#github {
+  position: absolute;
+  bottom: 10px;
+}

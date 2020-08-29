@@ -1,0 +1,143 @@
+<canvas></canvas>
+<a id="github" href="https://github.com/zvakanaka/sockets-whiteboard-with-memory">GitHub</a>
+<script src="./socket.io/socket.io.js"></script>
+<script>
+// inspired by https://github.com/socketio/socket.io/tree/master/examples/whiteboard
+function getAppPath() {
+  const pathname = window.location.pathname
+  const matchArr = pathname.match(/(^.*)(\/.*$)/)
+  if (matchArr) {
+    const [, path, suffix] = matchArr
+    if (!suffix.includes('.') || suffix === '/') return pathname
+    return path
+  }
+  return pathname
+}
+const appPath = getAppPath()
+const state = {
+  canvas: document.querySelector('canvas'), // defaults to 300x150
+  ratio: null,
+  image: { width: 900, height: 450 },
+  drawing: false,
+  current: {
+    color: 'black',
+    lineWidth: 2
+  }
+}
+
+state.canvas.addEventListener('mousedown', onMouseDown, false)
+state.canvas.addEventListener('mouseup', onMouseUp, false)
+state.canvas.addEventListener('mouseout', onMouseUp, false)
+state.canvas.addEventListener('mousemove', throttle(onMouseMove, 10), false)
+
+state.canvas.addEventListener('touchstart', onMouseDown, false)
+state.canvas.addEventListener('touchend', onMouseUp, false)
+state.canvas.addEventListener('touchcancel', onMouseUp, false)
+state.canvas.addEventListener('touchmove', throttle(onMouseMove, 10), false)
+
+state.ctx = state.canvas.getContext('2d')
+
+function onMouseDown(e){
+  state.drawing = true
+  state.current.x = e.clientX || e.touches[0].clientX
+  state.current.y = e.clientY || e.touches[0].clientY
+}
+
+function onMouseUp(e){
+  if (!state.drawing) return
+  state.drawing = false
+  drawLine(state.current.x, state.current.y, e.clientX || e.touches[0].clientX, e.clientY || e.touches[0].clientY, true)
+}
+
+function onMouseMove(e){
+  if (!state.drawing) return
+  drawLine(state.current.x, state.current.y, e.clientX || e.touches[0].clientX, e.clientY || e.touches[0].clientY, true)
+  state.current.x = e.clientX || e.touches[0].clientX
+  state.current.y = e.clientY || e.touches[0].clientY
+}
+function throttle(callback, delay) {
+  let previousCall = new Date().getTime()
+  return function throttler() {
+    const time = new Date().getTime()
+    if ((time - previousCall) >= delay) {
+      previousCall = time;
+      callback.apply(null, arguments)
+    }
+  }
+}
+function drawLine(startX, startY, endX, endY, drawLocal){
+  const instruction = {
+    type: 'line',
+    startX: (drawLocal ? startX - state.leftOffset : startX) / state.canvas.width,
+    startY: (drawLocal ? startY - state.topOffset : startY) / state.canvas.height,
+    endX: (drawLocal ? endX - state.leftOffset : endX) / state.canvas.width,
+    endY: (drawLocal ? endY - state.topOffset : endY) / state.canvas.height,
+    color: state.current.color,
+    lineWidth: state.current.lineWidth
+  }
+  if (drawLocal) {
+    drawInstruction(instruction)
+    cachedInstructions.push(instruction)
+  }
+  socket.emit('instruction', instruction)
+}
+const cachedInstructions = []
+state.draw = () => {
+  // contain image within view
+  const maxWidth = window.innerWidth
+  const maxHeight = window.innerHeight
+  const imageWidth = state.image.width
+  const imageHeight = state.image.height
+  state.canvas.width = imageWidth
+  state.canvas.height = imageHeight
+  state.ratio = 1
+
+  if (maxWidth < imageWidth) {
+    if (imageWidth > maxWidth) {
+      state.canvas.width = maxWidth
+      state.ratio = imageWidth / maxWidth
+      state.canvas.height = imageHeight / state.ratio
+    }
+  }
+  if (!state.ratio && maxHeight < imageHeight) {
+    if (imageHeight > maxHeight) {
+      state.canvas.height = maxHeight
+      state.ratio = imageHeight / maxHeight
+      state.canvas.width = imageWidth / state.ratio
+    }
+  }
+  state.topOffset = state.canvas.getBoundingClientRect().top
+  state.leftOffset = state.canvas.getBoundingClientRect().left
+
+  cachedInstructions.forEach(instruction => drawInstruction(instruction))
+}
+
+const socket = io('/', {path: appPath + 'socket.io'})
+
+socket.on('connect', () => {
+  state.draw()
+  window.onresize = () => state.draw()
+})
+
+socket.on('instructionCanvas', (instruction) => {
+  // console.log('receiving instruction', instruction)
+  drawInstruction(instruction)
+  cachedInstructions.push(instruction)
+})
+function drawInstruction(instruction) {
+  const { startX, startY, endX, endY, type, color } = instruction
+  if (type === 'line') {
+    state.ctx.beginPath();
+    state.ctx.moveTo(startX * state.canvas.width, startY * state.canvas.height);
+    state.ctx.lineTo(endX * state.canvas.width, endY * state.canvas.height);
+    state.ctx.strokeStyle = color;
+    state.ctx.lineWidth = instruction.lineWidth;
+    state.ctx.stroke();
+    state.ctx.closePath();
+  }
+}
+
+socket.on('disconnect', () => {
+  console.warn('disconnected from socket')
+})
+</script>
