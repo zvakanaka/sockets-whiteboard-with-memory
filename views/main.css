@@ -6,6 +6,11 @@ body {
   align-items: center;
   height: 100vh;
 }
+#controls {
+  position: absolute;
+  top: 10px;
+  display: flex;
+}
 canvas {
   outline: 1px solid black;
 }

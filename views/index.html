@@ -1,3 +1,10 @@
+<div id="controls">
+  <select id="color-select">
+    <option value="black" selected>Black</option>
+    <option value="white">White</option>
+  </select>
+  <input type="range" value="2" id="line-width-range" />
+</div>
 <canvas></canvas>
 <a id="github" href="https://github.com/zvakanaka/sockets-whiteboard-with-memory">GitHub</a>
 <script src="./socket.io/socket.io.js"></script>
@@ -16,6 +23,8 @@ function getAppPath() {
 const appPath = getAppPath()
 const state = {
   canvas: document.querySelector('canvas'), // defaults to 300x150
+  colorSelect: document.querySelector('#color-select'),
+  lineWidthRange: document.querySelector('#line-width-range'),
   ratio: null,
   image: { width: 900, height: 450 },
   drawing: false,
@@ -36,6 +45,15 @@ state.canvas.addEventListener('touchcancel', onMouseUp, false)
 state.canvas.addEventListener('touchmove', throttle(onMouseMove, 10), false)
 
 state.ctx = state.canvas.getContext('2d')
+state.ctx.fillStyle = 'white'
+state.ctx.fillRect(0, 0, state.canvas.width, state.canvas.height)
+
+state.colorSelect.addEventListener('change', () => {
+  state.current.color = state.colorSelect.value
+})
+state.lineWidthRange.addEventListener('change', () => {
+  state.current.lineWidth = state.lineWidthRange.value
+})
 
 function onMouseDown(e){
   state.drawing = true
